@@ -8,10 +8,23 @@ class WaterParticle:
     x: int
     y: int
     horizontal_preference: int = 0
+    stress: int = 0
+    is_red: bool = False
 
     @property
     def pos(self) -> tuple[int, int]:
         return self.x, self.y
+
+    def add_stress(self, max_stress: int) -> None:
+        if self.is_red:
+            return
+        self.stress += 1
+        if self.stress >= max_stress:
+            self.is_red = True
+
+    def reset_stress(self) -> None:
+        if not self.is_red:
+            self.stress = 0
 
 
 @dataclass

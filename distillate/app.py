@@ -7,6 +7,7 @@ from distillate.config import (
     GRID_HEIGHT,
     GRID_WIDTH,
     MAX_WATER,
+    MAX_STRESS,
     RANDOM_SEED,
     RESET_COOLDOWN_FRAMES,
     SIZE_UNIT,
@@ -29,6 +30,7 @@ class DistillateApp:
             block_life=BLOCK_LIFE,
             water_speed=WATER_SPEED,
             max_water=MAX_WATER,
+            max_stress=MAX_STRESS,
             reset_cooldown_frames=RESET_COOLDOWN_FRAMES,
             random_seed=RANDOM_SEED,
         )

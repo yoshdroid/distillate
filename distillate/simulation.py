@@ -12,6 +12,7 @@ class SimulationConfig:
     block_life: int
     water_speed: int
     max_water: int
+    max_stress: int
     reset_cooldown_frames: int
     random_seed: int = 0
 
@@ -112,9 +113,14 @@ class SimulationState:
         next_waters: dict[tuple[int, int], WaterParticle],
     ) -> tuple[int, int]:
         x, y = particle.pos
-        down = (x, y + 1)
+        if particle.is_red:
+            swapped = self._try_swap_red_water_upward(particle, remaining, next_waters)
+            if swapped is not None:
+                return swapped
 
+        down = (x, y + 1)
         if self._is_open_for_water(down, remaining, next_waters):
+            particle.reset_stress()
             return down
 
         if particle.horizontal_preference == 0:
@@ -126,9 +132,64 @@ class SimulationState:
         ]
         for target in sideways:
             if self._is_open_for_water(target, remaining, next_waters):
+                particle.reset_stress()
                 return target
 
+        if not particle.is_red and all(not self._is_open_for_water(target, remaining, next_waters) for target in sideways):
+            particle.add_stress(self.config.max_stress)
+
         return x, y
+
+    def _try_swap_red_water_upward(
+        self,
+        particle: WaterParticle,
+        remaining: dict[tuple[int, int], WaterParticle],
+        next_waters: dict[tuple[int, int], WaterParticle],
+    ) -> tuple[int, int] | None:
+        x, y = particle.pos
+        above = (x, y - 1)
+        if self._swap_with_blue_water(above, (x, y), remaining, next_waters):
+            return above
+
+        blocking_above = self._get_water_at(above, remaining, next_waters)
+        if blocking_above is None or not blocking_above.is_red:
+            return None
+
+        diagonal_targets = [(x - 1, y - 1), (x + 1, y - 1)]
+        for target in diagonal_targets:
+            if self._swap_with_blue_water(target, (x, y), remaining, next_waters):
+                return target
+
+        return None
+
+    def _swap_with_blue_water(
+        self,
+        source: tuple[int, int],
+        destination: tuple[int, int],
+        remaining: dict[tuple[int, int], WaterParticle],
+        next_waters: dict[tuple[int, int], WaterParticle],
+    ) -> bool:
+        candidate = self._get_water_at(source, remaining, next_waters)
+        if candidate is None or candidate.is_red:
+            return False
+
+        candidate.x, candidate.y = destination
+        if source in next_waters:
+            del next_waters[source]
+            next_waters[destination] = candidate
+        else:
+            remaining[destination] = remaining.pop(source)
+        return True
+
+    def _get_water_at(
+        self,
+        coord: tuple[int, int],
+        remaining: dict[tuple[int, int], WaterParticle],
+        next_waters: dict[tuple[int, int], WaterParticle],
+    ) -> WaterParticle | None:
+        if coord in next_waters:
+            return next_waters[coord]
+        return remaining.get(coord)
 
     def _is_open_for_water(
         self,

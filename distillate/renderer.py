@@ -63,7 +63,7 @@ class Renderer:
         for water in sorted(state.waters.values(), key=lambda item: (item.y, item.x)):
             dx = water.x * SIZE_UNIT
             dy = water.y * SIZE_UNIT
-            pyxel.rect(dx, dy, SIZE_UNIT, SIZE_UNIT, C_BLUE)
+            pyxel.rect(dx, dy, SIZE_UNIT, SIZE_UNIT, C_RED if water.is_red else C_BLUE)
 
     def _draw_debug(self, state: SimulationState, x: int, y: int) -> None:
         text = (
@@ -71,6 +71,7 @@ class Renderer:
             f"Mouse: ({pyxel.mouse_x},{pyxel.mouse_y})\n"
             f"Blocks: {len(state.blocks)}\n"
             f"Waters: {len(state.waters)}\n"
+            f"Red: {sum(1 for water in state.waters.values() if water.is_red)}\n"
             f"Cooldown: {state.cooldown_frames}\n"
         )
         pyxel.text(x + 1, y, text, 4)

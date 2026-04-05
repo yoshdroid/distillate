@@ -128,7 +128,9 @@ class SimulationState:
         while remaining:
             coord = next(iter(remaining))
             particle = remaining.pop(coord)
+            current_pos = particle.pos
             target = self._choose_water_target(particle, remaining, next_waters)
+            particle.previous_pos = current_pos
             particle.x, particle.y = target
             next_waters[target] = particle
 
@@ -170,10 +172,15 @@ class SimulationState:
             # ここを毎回ランダムにすると、流れが不安定で読みにくくなる。
             particle.horizontal_preference = self.randomizer.choice((-1, 1))
 
-        sideways = [
-            (x + particle.horizontal_preference, y),
-            (x - particle.horizontal_preference, y),
-        ]
+        # 直前いた場所へ戻る候補は後回しにする。
+        # これにより、最上部や狭い横通路での「左右に1マスずつ往復する」現象を抑える。
+        sideways = self._prioritize_sideways_targets(
+            particle,
+            [
+                (x + particle.horizontal_preference, y),
+                (x - particle.horizontal_preference, y),
+            ],
+        )
         for target in sideways:
             if self._is_open_for_water(target, remaining, next_waters):
                 particle.reset_stress()
@@ -186,6 +193,20 @@ class SimulationState:
 
         # 下にも左右にも行けない場合は現在位置に留まる。
         return x, y
+
+    def _prioritize_sideways_targets(
+        self,
+        particle: WaterParticle,
+        targets: list[tuple[int, int]],
+    ) -> list[tuple[int, int]]:
+        # 直前位置が候補に含まれる場合は、その候補を末尾に回す。
+        # これにより「左へ行った次のフレームで即右へ戻る」といった振動を減らす。
+        if particle.previous_pos is None:
+            return targets
+
+        forward_targets = [target for target in targets if target != particle.previous_pos]
+        backtrack_targets = [target for target in targets if target == particle.previous_pos]
+        return forward_targets + backtrack_targets
 
     def _try_swap_red_water_upward(
         self,

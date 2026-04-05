@@ -10,6 +10,7 @@ class WaterParticle:
     horizontal_preference: int = 0
     stress: int = 0
     is_red: bool = False
+    previous_pos: tuple[int, int] | None = None
 
     @property
     def pos(self) -> tuple[int, int]:

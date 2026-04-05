@@ -3,6 +3,7 @@ from __future__ import annotations
 import pyxel
 
 from distillate.config import (
+    C_BLACK,
     C_BLUE,
     C_BROWN,
     C_GRAY,
@@ -23,13 +24,28 @@ class Renderer:
     def __init__(self, debug_mode: bool = True):
         self.debug_mode = debug_mode
 
-    def draw(self, state: SimulationState) -> None:
+    def draw_game(self, state: SimulationState, stage_number: int) -> None:
         pyxel.cls(0)
         self._draw_stage(state)
         self._draw_blocks(state)
         self._draw_waters(state)
+        pyxel.text(4, 4, f"STAGE {stage_number}", C_WHITE)
         if self.debug_mode:
-            self._draw_debug(state, 0, 0)
+            self._draw_debug(state, 0, 10)
+
+    def draw_title(self, selected_stage: int, available_stages: list[int]) -> None:
+        pyxel.cls(C_BLACK)
+        center_x = GRID_WIDTH * SIZE_UNIT // 2
+        pyxel.text(center_x - 30, 28, "DISTILLATE", C_WHITE)
+        pyxel.text(center_x - 54, 60, "LEFT/RIGHT: SELECT STAGE", C_YELLOW)
+        pyxel.text(center_x - 47, 76, "LEFT CLICK: START GAME", C_YELLOW)
+        pyxel.text(center_x - 32, 92, "Q: QUIT PROGRAM", C_YELLOW)
+        pyxel.text(center_x - 28, 126, f"SELECTED STAGE {selected_stage:02d}", C_WHITE)
+        if available_stages:
+            available = ", ".join(f"{stage:02d}" for stage in available_stages)
+            pyxel.text(12, 154, f"AVAILABLE: {available}", C_GRAY)
+        else:
+            pyxel.text(12, 154, "AVAILABLE: NONE", C_RED)
 
     def _draw_stage(self, state: SimulationState) -> None:
         for x, y, tile in state.stage.iter_tiles():

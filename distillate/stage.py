@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from dataclasses import dataclass
 from enum import IntEnum
 
@@ -19,6 +20,19 @@ class Stage:
     def from_layout(cls, layout: list[list[int]]) -> "Stage":
         rows = tuple(tuple(Tile(value) for value in row) for row in layout)
         return cls(tiles=rows)
+
+    @classmethod
+    def from_file(cls, path: Path) -> "Stage":
+        rows: list[list[int]] = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if " " in stripped:
+                rows.append([int(value) for value in stripped.split()])
+            else:
+                rows.append([int(char) for char in stripped])
+        return cls.from_layout(rows)
 
     @property
     def width(self) -> int:
@@ -55,3 +69,16 @@ class Stage:
                 if tile == target:
                     positions.append((x, y))
         return positions
+
+
+def find_stage_files(base_dir: Path, pattern: str) -> dict[int, Path]:
+    stage_files: dict[int, Path] = {}
+    for path in sorted(base_dir.glob(pattern)):
+        stem = path.stem
+        _, _, suffix = stem.partition("_")
+        if not suffix.isdecimal():
+            continue
+        stage_number = int(suffix)
+        if 1 <= stage_number <= 99:
+            stage_files[stage_number] = path
+    return stage_files

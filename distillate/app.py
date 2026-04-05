@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pyxel
 
 from distillate.config import (
     DEBUG_MODE,
+    DEFAULT_STAGE_NUMBER,
     GRID_HEIGHT,
     GRID_WIDTH,
     MAX_WATER,
@@ -11,7 +14,7 @@ from distillate.config import (
     RANDOM_SEED,
     RESET_COOLDOWN_FRAMES,
     SIZE_UNIT,
-    STAGE_LAYOUT,
+    STAGE_FILE_GLOB,
     WATER_SPEED,
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
@@ -20,13 +23,22 @@ from distillate.config import (
 from distillate.input import bresenham_line
 from distillate.renderer import Renderer
 from distillate.simulation import SimulationConfig, SimulationState
-from distillate.stage import Stage
+from distillate.stage import Stage, find_stage_files
+
+
+class Scene:
+    TITLE = "title"
+    GAME = "game"
 
 
 class DistillateApp:
     def __init__(self) -> None:
-        stage = Stage.from_layout(STAGE_LAYOUT)
-        config = SimulationConfig(
+        self.base_dir = Path.cwd()
+        self.stage_files = find_stage_files(self.base_dir, STAGE_FILE_GLOB)
+        if not self.stage_files:
+            raise FileNotFoundError(f"No stage files matched {STAGE_FILE_GLOB!r} in {self.base_dir}")
+
+        self.simulation_config = SimulationConfig(
             block_life=BLOCK_LIFE,
             water_speed=WATER_SPEED,
             max_water=MAX_WATER,
@@ -34,7 +46,11 @@ class DistillateApp:
             reset_cooldown_frames=RESET_COOLDOWN_FRAMES,
             random_seed=RANDOM_SEED,
         )
-        self.state = SimulationState(stage=stage, config=config)
+        self.available_stages = sorted(self.stage_files)
+        self.selected_stage = DEFAULT_STAGE_NUMBER if DEFAULT_STAGE_NUMBER in self.stage_files else self.available_stages[0]
+        self.current_stage_number = self.selected_stage
+        self.scene = Scene.TITLE
+        self.state: SimulationState | None = None
         self.renderer = Renderer(debug_mode=DEBUG_MODE)
         self.dragging = False
         self.previous_cell = (0, 0)
@@ -45,8 +61,36 @@ class DistillateApp:
         pyxel.run(self.update, self.draw)
 
     def update(self) -> None:
+        if self.scene == Scene.TITLE:
+            self._update_title()
+        else:
+            self._update_game()
+
+    def draw(self) -> None:
+        if self.scene == Scene.TITLE:
+            self.renderer.draw_title(self.selected_stage, self.available_stages)
+            return
+
+        if self.state is not None:
+            self.renderer.draw_game(self.state, self.current_stage_number)
+
+    def _update_title(self) -> None:
         if pyxel.btnp(pyxel.KEY_Q):
             pyxel.quit()
+
+        if pyxel.btnp(pyxel.KEY_LEFT):
+            self._select_adjacent_stage(-1)
+        elif pyxel.btnp(pyxel.KEY_RIGHT):
+            self._select_adjacent_stage(1)
+
+        if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+            self._start_game(self.selected_stage)
+
+    def _update_game(self) -> None:
+        if pyxel.btnp(pyxel.KEY_Q):
+            self.scene = Scene.TITLE
+            self.dragging = False
+            return
 
         current_cell = self._mouse_to_grid(pyxel.mouse_x, pyxel.mouse_y)
         if current_cell is None:
@@ -54,14 +98,25 @@ class DistillateApp:
         else:
             self._handle_block_input(current_cell)
 
-        reset_water = pyxel.btnp(pyxel.KEY_W)
-        self.state.tick(reset_water=reset_water)
+        if self.state is not None:
+            reset_water = pyxel.btnp(pyxel.KEY_W)
+            self.state.tick(reset_water=reset_water)
 
         if current_cell is not None:
             self.previous_cell = current_cell
 
-    def draw(self) -> None:
-        self.renderer.draw(self.state)
+    def _start_game(self, stage_number: int) -> None:
+        stage_path = self.stage_files[stage_number]
+        self.state = SimulationState(stage=Stage.from_file(stage_path), config=self.simulation_config)
+        self.current_stage_number = stage_number
+        self.scene = Scene.GAME
+        self.dragging = False
+        self.previous_cell = (0, 0)
+
+    def _select_adjacent_stage(self, direction: int) -> None:
+        current_index = self.available_stages.index(self.selected_stage)
+        next_index = (current_index + direction) % len(self.available_stages)
+        self.selected_stage = self.available_stages[next_index]
 
     def _handle_block_input(self, current_cell: tuple[int, int]) -> None:
         if self.dragging and pyxel.btnr(pyxel.MOUSE_BUTTON_LEFT):

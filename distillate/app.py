@@ -6,6 +6,7 @@ import pyxel
 
 from distillate.config import (
     DEBUG_MODE,
+    CLEAR_RATE,
     DEFAULT_STAGE_NUMBER,
     GRID_HEIGHT,
     GRID_WIDTH,
@@ -16,6 +17,7 @@ from distillate.config import (
     SIZE_UNIT,
     STAGE_DIRECTORY,
     STAGE_FILE_GLOB,
+    STAGE_GOAL,
     WATER_SPEED,
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
@@ -47,6 +49,8 @@ class DistillateApp:
             max_stress=MAX_STRESS,
             reset_cooldown_frames=RESET_COOLDOWN_FRAMES,
             random_seed=RANDOM_SEED,
+            stage_goal=STAGE_GOAL,
+            clear_rate=CLEAR_RATE,
         )
         self.available_stages = sorted(self.stage_files)
         self.selected_stage = DEFAULT_STAGE_NUMBER if DEFAULT_STAGE_NUMBER in self.stage_files else self.available_stages[0]
@@ -94,6 +98,12 @@ class DistillateApp:
             self.dragging = False
             return
 
+        if self.state is not None and self.state.cleared:
+            if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+                self.scene = Scene.TITLE
+                self.dragging = False
+            return
+
         current_cell = self._mouse_to_grid(pyxel.mouse_x, pyxel.mouse_y)
         if current_cell is None:
             self.dragging = False
@@ -117,6 +127,8 @@ class DistillateApp:
             max_stress=stage_data.overrides.get("MAX_STRESS", self.simulation_config.max_stress),
             reset_cooldown_frames=self.simulation_config.reset_cooldown_frames,
             random_seed=self.simulation_config.random_seed,
+            stage_goal=stage_data.overrides.get("STAGE_GOAL", self.simulation_config.stage_goal),
+            clear_rate=stage_data.overrides.get("CLEAR_RATE", self.simulation_config.clear_rate),
         )
         self.state = SimulationState(stage=stage_data.stage, config=stage_config)
         self.current_stage_number = stage_number

@@ -30,6 +30,10 @@ class Renderer:
         self._draw_blocks(state)
         self._draw_waters(state)
         pyxel.text(4, 4, f"STAGE {stage_number}", C_WHITE)
+        if state.config.stage_goal > 0:
+            pyxel.text(64, 4, f"GOAL {state.goal_removed_total}/{state.config.stage_goal}", C_WHITE)
+        if state.cleared:
+            self._draw_clear_overlay(state)
         if self.debug_mode:
             self._draw_debug(state, 0, 10)
 
@@ -57,6 +61,8 @@ class Renderer:
                 pyxel.tri(dx + 1, dy + 2, dx + SIZE_UNIT - 1, dy + 2, dx + SIZE_UNIT // 2, dy + SIZE_UNIT - 2, C_YELLOW)
             elif tile == Tile.DRAIN:
                 pyxel.tri(dx + 1, dy + 2, dx + SIZE_UNIT - 1, dy + 2, dx + SIZE_UNIT // 2, dy + SIZE_UNIT - 2, C_RED)
+            elif tile == Tile.GOAL_DRAIN:
+                pyxel.tri(dx + 1, dy + 2, dx + SIZE_UNIT - 1, dy + 2, dx + SIZE_UNIT // 2, dy + SIZE_UNIT - 2, C_BLUE)
 
         for x in range(GRID_WIDTH + 1):
             pyxel.line(x * SIZE_UNIT, 0, x * SIZE_UNIT, GRID_HEIGHT * SIZE_UNIT, C_GREEN)
@@ -88,7 +94,27 @@ class Renderer:
             f"Blocks: {len(state.blocks)}\n"
             f"Waters: {len(state.waters)}\n"
             f"Red: {sum(1 for water in state.waters.values() if water.is_red)}\n"
+            f"Goal Blue: {state.goal_removed_blue}\n"
+            f"Goal Red: {state.goal_removed_red}\n"
             f"Cooldown: {state.cooldown_frames}\n"
         )
         pyxel.text(x + 1, y, text, 4)
         pyxel.text(x, y, text, 9)
+
+    def _draw_clear_overlay(self, state: SimulationState) -> None:
+        width = GRID_WIDTH * SIZE_UNIT
+        height = GRID_HEIGHT * SIZE_UNIT
+        box_x = 20
+        box_y = 52
+        box_w = width - 40
+        box_h = 84
+        pyxel.rect(box_x, box_y, box_w, box_h, C_BLACK)
+        pyxel.rectb(box_x, box_y, box_w, box_h, C_WHITE)
+        pyxel.text(box_x + 58, box_y + 12, "STAGE CLEAR", C_YELLOW)
+        pyxel.text(box_x + 24, box_y + 30, f"GOAL DRAINED: {state.goal_removed_total}/{state.config.stage_goal}", C_WHITE)
+        pyxel.text(box_x + 24, box_y + 44, f"BLUE RATE: {state.clear_percentage:.1f}%", C_WHITE)
+        if state.is_true_clear:
+            pyxel.text(box_x + 24, box_y + 58, "TRUE CLEAR", C_BLUE)
+        else:
+            pyxel.text(box_x + 24, box_y + 58, "CLEAR", C_RED)
+        pyxel.text(box_x + 24, box_y + 72, "LEFT CLICK: RETURN TITLE", C_WHITE)

@@ -12,12 +12,13 @@ class Tile(IntEnum):
     WALL = 1
     SOURCE = 2
     DRAIN = 3
+    GOAL_DRAIN = 4
 
 
 @dataclass(frozen=True)
 class StageData:
     stage: "Stage"
-    overrides: dict[str, int]
+    overrides: dict[str, int | float]
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,9 @@ class Stage:
     def drain_positions(self) -> list[tuple[int, int]]:
         return self._positions_for(Tile.DRAIN)
 
+    def goal_drain_positions(self) -> list[tuple[int, int]]:
+        return self._positions_for(Tile.GOAL_DRAIN)
+
     def iter_tiles(self):
         for y, row in enumerate(self.tiles):
             for x, tile in enumerate(row):
@@ -76,7 +80,7 @@ def load_stage_data(path: Path) -> StageData:
     for line in map_lines:
         layout.append(_parse_stage_row(line, path))
 
-    overrides: dict[str, int] = {}
+    overrides: dict[str, int | float] = {}
     for line in lines[GRID_HEIGHT:]:
         parsed = _parse_stage_parameter(line)
         if parsed is None:
@@ -111,7 +115,7 @@ def _parse_stage_row(line: str, path: Path) -> list[int]:
     return values
 
 
-def _parse_stage_parameter(line: str) -> tuple[str, int] | None:
+def _parse_stage_parameter(line: str) -> tuple[str, int | float] | None:
     # 将来フォーマットが増えてもよいよう、未解釈行は無視する。
     separators = ("=", ":", " ")
     for separator in separators:
@@ -122,4 +126,11 @@ def _parse_stage_parameter(line: str) -> tuple[str, int] | None:
         value = value.strip()
         if key in {"MAX_WATER", "MAX_STRESS", "BLOCK_LIFE"} and value.isdecimal():
             return key, int(value)
+        if key == "STAGE_GOAL" and value.isdecimal():
+            return key, int(value)
+        if key == "CLEAR_RATE":
+            try:
+                return key, float(value)
+            except ValueError:
+                continue
     return None

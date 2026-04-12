@@ -21,6 +21,10 @@ class SimulationConfig:
     reset_cooldown_frames: int
     # 水の左右選択を再現可能にするための乱数シード。
     random_seed: int = 0
+    # ゴール排水で除去すべき水の総数。0 以下ならクリア判定なし。
+    stage_goal: int = 0
+    # True Clear 判定に使う青水比率の閾値。
+    clear_rate: float = 0.0
 
 
 @dataclass
@@ -36,6 +40,9 @@ class SimulationState:
     waters: dict[tuple[int, int], WaterParticle] = field(default_factory=dict)
     frame_count: int = 0
     cooldown_frames: int = 0
+    goal_removed_blue: int = 0
+    goal_removed_red: int = 0
+    cleared: bool = False
     randomizer: random.Random = field(init=False)
 
     def __post_init__(self) -> None:
@@ -64,6 +71,9 @@ class SimulationState:
         self.cooldown_frames = self.config.reset_cooldown_frames
 
     def tick(self, reset_water: bool = False) -> None:
+        if self.cleared:
+            return
+
         # 毎フレームの更新順序。
         # 1. フレーム加算
         # 2. 一時ブロック寿命更新
@@ -98,13 +108,29 @@ class SimulationState:
     def _remove_drained_water(self) -> None:
         # 排水口の上下左右にいる水を除去する。
         # ここも削除対象をいったん集めてから消す。
-        drained: set[tuple[int, int]] = set()
+        drained: dict[tuple[int, int], bool] = {}
         for drain_x, drain_y in self.stage.drain_positions():
             for x, y in _neighbors4(drain_x, drain_y):
                 if (x, y) in self.waters:
-                    drained.add((x, y))
-        for coord in drained:
+                    drained[(x, y)] = False
+        for drain_x, drain_y in self.stage.goal_drain_positions():
+            for x, y in _neighbors4(drain_x, drain_y):
+                if (x, y) in self.waters:
+                    drained[(x, y)] = True
+
+        for coord, counted_for_goal in drained.items():
+            water = self.waters.get(coord)
+            if water is None:
+                continue
+            if counted_for_goal:
+                if water.is_red:
+                    self.goal_removed_red += 1
+                else:
+                    self.goal_removed_blue += 1
             del self.waters[coord]
+
+        if self.config.stage_goal > 0 and self.goal_removed_total >= self.config.stage_goal:
+            self.cleared = True
 
     def _spawn_water(self) -> None:
         # 各水源は、総数制限に引っかからない限り、自分の位置に水を1個だけ維持しようとする。
@@ -296,6 +322,26 @@ class SimulationState:
         if coord in next_waters:
             return False
         return True
+
+    @property
+    def goal_removed_total(self) -> int:
+        return self.goal_removed_blue + self.goal_removed_red
+
+    @property
+    def clear_ratio(self) -> float:
+        if self.config.stage_goal <= 0:
+            return 0.0
+        return self.goal_removed_blue / self.config.stage_goal
+
+    @property
+    def clear_percentage(self) -> float:
+        return self.clear_ratio * 100.0
+
+    @property
+    def is_true_clear(self) -> bool:
+        if not self.cleared:
+            return False
+        return self.clear_ratio >= self.config.clear_rate
 
 
 def _neighbors4(x: int, y: int) -> tuple[tuple[int, int], ...]:

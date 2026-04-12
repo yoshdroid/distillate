@@ -256,3 +256,20 @@
   - 水の優先移動順に斜め下降を追加
 - `water_behavior_experiment_v0_6.md`
   - v0.61 の意図とルールを追記
+
+## Experimental Branch: advanced-water-behavior v0.62
+
+進行方向斜め上への低確率ジャンプを追加し、斜め下降を設定でオン/オフできるようにした。
+
+### 主な変更点
+
+- `config.py`
+  - `ENABLE_DIAGONAL_FALL` を追加
+  - `UPWARD_SPLASH_CHANCE` を追加
+- `simulation.py`
+  - `_find_upward_splash_target` を追加
+  - 斜め下降を設定フラグ経由で切り替えるよう変更
+- `app.py`
+  - 新しい水挙動パラメータを `SimulationConfig` へ渡すよう更新
+- `water_behavior_experiment_v0_6.md`
+  - v0.62 の意図とルールを追記

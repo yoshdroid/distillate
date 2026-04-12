@@ -299,6 +299,12 @@ class SimulationState:
                 (x - particle.horizontal_preference, y),
             ],
         )
+        if particle.previous_pos is not None:
+            # 直前に左右交換で移ってきた位置へ即座に戻すと、
+            # 壁際で赤水と青水が永遠に入れ替わり続けてしまう。
+            # ここでは「直前いたマス」への左右交換だけを 1 フレーム禁止し、
+            # 真上交換や通常移動には影響させない。
+            lateral_targets = [target for target in lateral_targets if target != particle.previous_pos]
         for target in lateral_targets:
             if self._swap_with_blue_water(target, (x, y), remaining, next_waters):
                 return target

@@ -285,3 +285,15 @@
   - 交換順を「真上 -> 左右 -> 斜め上」に拡張
 - `water_behavior_experiment_v0_6.md`
   - v0.63 の意図とルールを追記
+
+## Experimental Branch: advanced-water-behavior v0.64
+
+赤水の左右交換で、壁際の 2 粒子が同じ 2 マスを往復し続ける問題を抑えた。
+
+### 主な変更点
+
+- `simulation.py`
+  - 赤水の左右交換候補から `previous_pos` を除外
+  - 直前に交換してきた位置への即時再交換を防止
+- `water_behavior_experiment_v0_6.md`
+  - v0.64 の不具合内容と対処方針を追記

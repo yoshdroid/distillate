@@ -273,3 +273,15 @@
   - 新しい水挙動パラメータを `SimulationConfig` へ渡すよう更新
 - `water_behavior_experiment_v0_6.md`
   - v0.62 の意図とルールを追記
+
+## Experimental Branch: advanced-water-behavior v0.63
+
+赤水が左右の青水とも位置交換できるようにして、比重差のあるような上昇挙動を強めた。
+
+### 主な変更点
+
+- `simulation.py`
+  - 赤水の交換候補に左右方向を追加
+  - 交換順を「真上 -> 左右 -> 斜め上」に拡張
+- `water_behavior_experiment_v0_6.md`
+  - v0.63 の意図とルールを追記

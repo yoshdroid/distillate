@@ -292,6 +292,17 @@ class SimulationState:
         if self._swap_with_blue_water(above, (x, y), remaining, next_waters):
             return above
 
+        lateral_targets = self._prioritize_sideways_targets(
+            particle,
+            [
+                (x + particle.horizontal_preference, y),
+                (x - particle.horizontal_preference, y),
+            ],
+        )
+        for target in lateral_targets:
+            if self._swap_with_blue_water(target, (x, y), remaining, next_waters):
+                return target
+
         blocking_above = self._get_water_at(above, remaining, next_waters)
         if blocking_above is None or not blocking_above.is_red:
             return None

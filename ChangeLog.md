@@ -244,3 +244,15 @@
   - 新しい探索深さ設定を `SimulationConfig` へ渡すよう更新
 - `water_behavior_experiment_v0_6.md`
   - 実験の意図、アルゴリズム、期待効果、副作用を文書化
+
+## Experimental Branch: advanced-water-behavior v0.61
+
+斜め下降を追加して、水が段差からより自然にこぼれ落ちるよう調整した。
+
+### 主な変更点
+
+- `simulation.py`
+  - `_find_diagonal_fall_target` を追加
+  - 水の優先移動順に斜め下降を追加
+- `water_behavior_experiment_v0_6.md`
+  - v0.61 の意図とルールを追記

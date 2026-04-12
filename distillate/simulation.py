@@ -211,6 +211,18 @@ class SimulationState:
             ],
         )
 
+        diagonal_target = self._find_diagonal_fall_target(
+            x,
+            y,
+            remaining,
+            next_waters,
+            sideways,
+        )
+        if diagonal_target is not None:
+            particle.reset_stress()
+            particle.horizontal_preference = diagonal_target[0] - x
+            return diagonal_target
+
         guided_target = self._find_guided_sideways_target(
             particle,
             remaining,
@@ -248,6 +260,26 @@ class SimulationState:
         forward_targets = [target for target in targets if target != particle.previous_pos]
         backtrack_targets = [target for target in targets if target == particle.previous_pos]
         return forward_targets + backtrack_targets
+
+    def _find_diagonal_fall_target(
+        self,
+        x: int,
+        y: int,
+        remaining: dict[tuple[int, int], WaterParticle],
+        next_waters: dict[tuple[int, int], WaterParticle],
+        sideways: list[tuple[int, int]],
+    ) -> tuple[int, int] | None:
+        # 真下が塞がっていても、横へ 1 マス滑り込めて、その斜め下が空いていれば、
+        # 水はそのまま斜め下へこぼれ落ちる。
+        for side_x, side_y in sideways:
+            diagonal = (side_x, side_y + 1)
+            if self._is_open_for_water((side_x, side_y), remaining, next_waters) and self._is_open_for_water(
+                diagonal,
+                remaining,
+                next_waters,
+            ):
+                return diagonal
+        return None
 
     def _find_guided_sideways_target(
         self,

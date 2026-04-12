@@ -17,6 +17,8 @@ class SimulationConfig:
     max_water: int
     # 青い水が赤い水へ変化するまでに必要な停滞回数。
     max_stress: int
+    # 横方向にどこまで見渡して「落ち口」を探すか。
+    lateral_flow_search_depth: int
     # W キーなどで全水削除した後の再生成停止フレーム数。
     reset_cooldown_frames: int
     # 水の左右選択を再現可能にするための乱数シード。
@@ -173,8 +175,9 @@ class SimulationState:
         # 青い水:
         # 1. 下へ進む
         # 2. 左右の優先方向へ進む
-        # 3. 逆側へ進む
-        # 4. どこにも行けなければその場に留まり、stress を加算
+        # 3. 横方向に数マス先まで見て、下へ落ちられる流路があればその方向へ寄る
+        # 4. 逆側へ進む
+        # 5. どこにも行けなければその場に留まり、stress を加算
         #
         # 赤い水:
         # 0. まず「上方向への入れ替え」ができるか試す
@@ -207,6 +210,18 @@ class SimulationState:
                 (x - particle.horizontal_preference, y),
             ],
         )
+
+        guided_target = self._find_guided_sideways_target(
+            particle,
+            remaining,
+            next_waters,
+            sideways,
+        )
+        if guided_target is not None:
+            particle.reset_stress()
+            particle.horizontal_preference = guided_target[0] - x
+            return guided_target
+
         for target in sideways:
             if self._is_open_for_water(target, remaining, next_waters):
                 particle.reset_stress()
@@ -233,6 +248,53 @@ class SimulationState:
         forward_targets = [target for target in targets if target != particle.previous_pos]
         backtrack_targets = [target for target in targets if target == particle.previous_pos]
         return forward_targets + backtrack_targets
+
+    def _find_guided_sideways_target(
+        self,
+        particle: WaterParticle,
+        remaining: dict[tuple[int, int], WaterParticle],
+        next_waters: dict[tuple[int, int], WaterParticle],
+        sideways: list[tuple[int, int]],
+    ) -> tuple[int, int] | None:
+        # 足元が詰まっているとき、横に数マス先まで見て
+        # 「そこまで移動を続ければ下に落ちられる」方向があれば、
+        # その方向へ 1 マスだけ寄る。
+        #
+        # これにより棚の上の水が近くの落ち口へ向かいやすくなり、
+        # その場で左右に揺れ続ける不自然さを減らせる。
+        x, y = particle.pos
+        for target_x, target_y in sideways:
+            direction = target_x - x
+            if direction == 0:
+                continue
+            if self._find_drop_distance(
+                x,
+                y,
+                direction,
+                remaining,
+                next_waters,
+            ) is not None and self._is_open_for_water((target_x, target_y), remaining, next_waters):
+                return target_x, target_y
+        return None
+
+    def _find_drop_distance(
+        self,
+        x: int,
+        y: int,
+        direction: int,
+        remaining: dict[tuple[int, int], WaterParticle],
+        next_waters: dict[tuple[int, int], WaterParticle],
+    ) -> int | None:
+        # direction 方向へ 1 マスずつ空路をたどり、
+        # 途中のどこかで真下が空いていれば、その距離を返す。
+        for distance in range(1, self.config.lateral_flow_search_depth + 1):
+            cell = (x + direction * distance, y)
+            below = (cell[0], y + 1)
+            if not self._is_open_for_water(cell, remaining, next_waters):
+                return None
+            if self._is_open_for_water(below, remaining, next_waters):
+                return distance
+        return None
 
     def _try_swap_red_water_upward(
         self,

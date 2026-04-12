@@ -14,6 +14,7 @@ from distillate.config import (
     RANDOM_SEED,
     RESET_COOLDOWN_FRAMES,
     SIZE_UNIT,
+    STAGE_DIRECTORY,
     STAGE_FILE_GLOB,
     WATER_SPEED,
     WINDOW_HEIGHT,
@@ -23,7 +24,7 @@ from distillate.config import (
 from distillate.input import bresenham_line
 from distillate.renderer import Renderer
 from distillate.simulation import SimulationConfig, SimulationState
-from distillate.stage import Stage, find_stage_files
+from distillate.stage import find_stage_files, load_stage_data
 
 
 class Scene:
@@ -34,9 +35,10 @@ class Scene:
 class DistillateApp:
     def __init__(self) -> None:
         self.base_dir = Path.cwd()
-        self.stage_files = find_stage_files(self.base_dir, STAGE_FILE_GLOB)
+        self.stage_dir = self.base_dir / STAGE_DIRECTORY
+        self.stage_files = find_stage_files(self.stage_dir, STAGE_FILE_GLOB)
         if not self.stage_files:
-            raise FileNotFoundError(f"No stage files matched {STAGE_FILE_GLOB!r} in {self.base_dir}")
+            raise FileNotFoundError(f"No stage files matched {STAGE_FILE_GLOB!r} in {self.stage_dir}")
 
         self.simulation_config = SimulationConfig(
             block_life=BLOCK_LIFE,
@@ -107,7 +109,16 @@ class DistillateApp:
 
     def _start_game(self, stage_number: int) -> None:
         stage_path = self.stage_files[stage_number]
-        self.state = SimulationState(stage=Stage.from_file(stage_path), config=self.simulation_config)
+        stage_data = load_stage_data(stage_path)
+        stage_config = SimulationConfig(
+            block_life=stage_data.overrides.get("BLOCK_LIFE", self.simulation_config.block_life),
+            water_speed=self.simulation_config.water_speed,
+            max_water=stage_data.overrides.get("MAX_WATER", self.simulation_config.max_water),
+            max_stress=stage_data.overrides.get("MAX_STRESS", self.simulation_config.max_stress),
+            reset_cooldown_frames=self.simulation_config.reset_cooldown_frames,
+            random_seed=self.simulation_config.random_seed,
+        )
+        self.state = SimulationState(stage=stage_data.stage, config=stage_config)
         self.current_stage_number = stage_number
         self.scene = Scene.GAME
         self.dragging = False

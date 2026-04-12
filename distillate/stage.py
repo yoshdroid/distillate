@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
 from dataclasses import dataclass
 from enum import IntEnum
+from pathlib import Path
+
+from distillate.config import GRID_HEIGHT, GRID_WIDTH
 
 
 class Tile(IntEnum):
@@ -13,6 +15,12 @@ class Tile(IntEnum):
 
 
 @dataclass(frozen=True)
+class StageData:
+    stage: "Stage"
+    overrides: dict[str, int]
+
+
+@dataclass(frozen=True)
 class Stage:
     tiles: tuple[tuple[Tile, ...], ...]
 
@@ -20,19 +28,6 @@ class Stage:
     def from_layout(cls, layout: list[list[int]]) -> "Stage":
         rows = tuple(tuple(Tile(value) for value in row) for row in layout)
         return cls(tiles=rows)
-
-    @classmethod
-    def from_file(cls, path: Path) -> "Stage":
-        rows: list[list[int]] = []
-        for line in path.read_text(encoding="utf-8").splitlines():
-            stripped = line.strip()
-            if not stripped:
-                continue
-            if " " in stripped:
-                rows.append([int(value) for value in stripped.split()])
-            else:
-                rows.append([int(char) for char in stripped])
-        return cls.from_layout(rows)
 
     @property
     def width(self) -> int:
@@ -71,6 +66,27 @@ class Stage:
         return positions
 
 
+def load_stage_data(path: Path) -> StageData:
+    lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    map_lines = lines[:GRID_HEIGHT]
+    if len(map_lines) != GRID_HEIGHT:
+        raise ValueError(f"{path} does not contain {GRID_HEIGHT} stage rows")
+
+    layout: list[list[int]] = []
+    for line in map_lines:
+        layout.append(_parse_stage_row(line, path))
+
+    overrides: dict[str, int] = {}
+    for line in lines[GRID_HEIGHT:]:
+        parsed = _parse_stage_parameter(line)
+        if parsed is None:
+            continue
+        key, value = parsed
+        overrides[key] = value
+
+    return StageData(stage=Stage.from_layout(layout), overrides=overrides)
+
+
 def find_stage_files(base_dir: Path, pattern: str) -> dict[int, Path]:
     stage_files: dict[int, Path] = {}
     for path in sorted(base_dir.glob(pattern)):
@@ -82,3 +98,28 @@ def find_stage_files(base_dir: Path, pattern: str) -> dict[int, Path]:
         if 1 <= stage_number <= 99:
             stage_files[stage_number] = path
     return stage_files
+
+
+def _parse_stage_row(line: str, path: Path) -> list[int]:
+    if " " in line:
+        values = [int(value) for value in line.split()]
+    else:
+        values = [int(char) for char in line]
+
+    if len(values) != GRID_WIDTH:
+        raise ValueError(f"{path} row has {len(values)} columns, expected {GRID_WIDTH}")
+    return values
+
+
+def _parse_stage_parameter(line: str) -> tuple[str, int] | None:
+    # 将来フォーマットが増えてもよいよう、未解釈行は無視する。
+    separators = ("=", ":", " ")
+    for separator in separators:
+        if separator not in line:
+            continue
+        key, value = line.split(separator, 1)
+        key = key.strip().upper()
+        value = value.strip()
+        if key in {"MAX_WATER", "MAX_STRESS", "BLOCK_LIFE"} and value.isdecimal():
+            return key, int(value)
+    return None

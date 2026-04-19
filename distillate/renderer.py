@@ -43,13 +43,47 @@ class Renderer:
         pyxel.text(center_x - 30, 28, "DISTILLATE", C_WHITE)
         pyxel.text(center_x - 54, 60, "LEFT/RIGHT: SELECT STAGE", C_YELLOW)
         pyxel.text(center_x - 47, 76, "LEFT CLICK: START GAME", C_YELLOW)
-        pyxel.text(center_x - 32, 92, "Q: QUIT PROGRAM", C_YELLOW)
+        pyxel.text(center_x - 46, 92, "S: SOUND TEST MODE", C_YELLOW)
+        pyxel.text(center_x - 32, 108, "Q: QUIT PROGRAM", C_YELLOW)
         pyxel.text(center_x - 28, 126, f"SELECTED STAGE {selected_stage:02d}", C_WHITE)
         if available_stages:
             available = ", ".join(f"{stage:02d}" for stage in available_stages)
             pyxel.text(12, 154, f"AVAILABLE: {available}", C_GRAY)
         else:
             pyxel.text(12, 154, "AVAILABLE: NONE", C_RED)
+
+    def draw_sound_test(
+        self,
+        effect_names: list[str],
+        selected_effect: int,
+        bgm_names: list[str],
+        selected_bgm: int,
+        bgm_enabled: bool,
+        current_bgm: str | None,
+    ) -> None:
+        pyxel.cls(C_BLACK)
+        pyxel.text(82, 14, "SOUND TEST", C_WHITE)
+        pyxel.text(18, 34, "UP/DOWN: SELECT EFFECT", C_YELLOW)
+        pyxel.text(18, 44, "ENTER/SPACE: PLAY EFFECT", C_YELLOW)
+        pyxel.text(18, 58, "LEFT/RIGHT: SELECT BGM", C_YELLOW)
+        pyxel.text(18, 68, "B: BGM ON/OFF", C_YELLOW)
+        pyxel.text(18, 82, "Q: RETURN TITLE", C_YELLOW)
+
+        pyxel.text(18, 104, "EFFECTS", C_WHITE)
+        for index, name in enumerate(effect_names):
+            color = C_BLUE if index == selected_effect else C_GRAY
+            pyxel.text(28, 116 + index * 10, name.upper(), color)
+
+        pyxel.text(140, 104, "BGM", C_WHITE)
+        for index, name in enumerate(bgm_names):
+            color = C_BLUE if index == selected_bgm else C_GRAY
+            pyxel.text(150, 116 + index * 10, name.upper(), color)
+
+        bgm_status = "ON" if bgm_enabled else "OFF"
+        bgm_color = C_BLUE if bgm_enabled else C_RED
+        pyxel.text(140, 160, f"BGM SWITCH: {bgm_status}", bgm_color)
+        now_playing = current_bgm.upper() if current_bgm is not None else "NONE"
+        pyxel.text(18, 180, f"NOW PLAYING: {now_playing}", C_WHITE)
 
     def _draw_stage(self, state: SimulationState) -> None:
         for x, y, tile in state.stage.iter_tiles():

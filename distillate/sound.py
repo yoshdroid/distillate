@@ -7,7 +7,7 @@ import pyxel
 
 EFFECT_CHANNEL = 0
 BGM_CHANNELS = (1, 2, 3)
-DEFAULT_TEMPO = 240
+DEFAULT_TEMPO = 8
 
 
 @dataclass(frozen=True)
@@ -49,10 +49,10 @@ class SoundManager:
         self.current_bgm: str | None = None
 
     def setup(self) -> None:
-        self._set_sound(0, "c3g3", "p", "7", "n", DEFAULT_TEMPO)
+        self._set_sound(0, "c3e3g3", "s", "7", "n", DEFAULT_TEMPO)
         self._set_sound(1, "f3", "n", "7", "n", DEFAULT_TEMPO)
         self._set_sound(2, "c2c2", "n", "7", "n", DEFAULT_TEMPO)
-        self._set_sound(3, "c2c#2", "p", "7", "f", DEFAULT_TEMPO)
+        self._set_sound(3, "c2c#2", "p", "15", "f", DEFAULT_TEMPO)
         self._set_sound(4, "d4", "p", "6", "f", DEFAULT_TEMPO)
         self._set_sound(5, "c3", "p", "5", "f", DEFAULT_TEMPO)
 
@@ -62,6 +62,12 @@ class SoundManager:
         self._set_sound(10, "c1c1", "p", "2", "f", 24)
         self._set_sound(11, "c4e4g4c4", "t", "5", "f", 18)
         self._set_sound(12, "c3g3c4g3", "p", "4", "f", 18)
+
+    def effect_names(self) -> list[str]:
+        return list(self.effects.keys())
+
+    def bgm_names(self) -> list[str]:
+        return list(self.bgm_tracks.keys())
 
     def request_effect(self, effect_name: str) -> None:
         if effect_name not in self.effects:

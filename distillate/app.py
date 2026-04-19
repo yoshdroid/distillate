@@ -37,6 +37,7 @@ from distillate.stage import find_stage_files, load_stage_data
 class Scene:
     TITLE = "title"
     GAME = "game"
+    SOUND_TEST = "sound_test"
 
 
 class DistillateApp:
@@ -68,6 +69,11 @@ class DistillateApp:
         self.state: SimulationState | None = None
         self.renderer = Renderer(debug_mode=DEBUG_MODE)
         self.sound = SoundManager()
+        self.sound_test_effects = self.sound.effect_names()
+        self.sound_test_bgms = self.sound.bgm_names()
+        self.selected_effect_index = 0
+        self.selected_bgm_index = 0
+        self.sound_test_bgm_enabled = False
         self.dragging = False
         self.previous_cell = (0, 0)
         self.quit_delay_frames = 0
@@ -88,6 +94,8 @@ class DistillateApp:
 
         if self.scene == Scene.TITLE:
             self._update_title()
+        elif self.scene == Scene.SOUND_TEST:
+            self._update_sound_test()
         else:
             self._update_game()
         self.sound.flush_effects()
@@ -95,6 +103,17 @@ class DistillateApp:
     def draw(self) -> None:
         if self.scene == Scene.TITLE:
             self.renderer.draw_title(self.selected_stage, self.available_stages)
+            return
+
+        if self.scene == Scene.SOUND_TEST:
+            self.renderer.draw_sound_test(
+                effect_names=self.sound_test_effects,
+                selected_effect=self.selected_effect_index,
+                bgm_names=self.sound_test_bgms,
+                selected_bgm=self.selected_bgm_index,
+                bgm_enabled=self.sound_test_bgm_enabled,
+                current_bgm=self.sound.current_bgm,
+            )
             return
 
         if self.state is not None:
@@ -110,8 +129,47 @@ class DistillateApp:
         elif pyxel.btnp(pyxel.KEY_RIGHT):
             self._select_adjacent_stage(1)
 
+        if pyxel.btnp(pyxel.KEY_S):
+            self.sound.request_effect(EffectName.SYSTEM)
+            self.scene = Scene.SOUND_TEST
+            self.sound.stop_bgm()
+            self.sound_test_bgm_enabled = False
+            return
+
         if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
             self._start_game(self.selected_stage)
+
+    def _update_sound_test(self) -> None:
+        if pyxel.btnp(pyxel.KEY_Q):
+            self.sound.request_effect(EffectName.SYSTEM)
+            self.sound.stop_bgm()
+            self.sound_test_bgm_enabled = False
+            self.scene = Scene.TITLE
+            return
+
+        if pyxel.btnp(pyxel.KEY_UP):
+            self.selected_effect_index = (self.selected_effect_index - 1) % len(self.sound_test_effects)
+        elif pyxel.btnp(pyxel.KEY_DOWN):
+            self.selected_effect_index = (self.selected_effect_index + 1) % len(self.sound_test_effects)
+
+        if pyxel.btnp(pyxel.KEY_LEFT):
+            self.selected_bgm_index = (self.selected_bgm_index - 1) % len(self.sound_test_bgms)
+            if self.sound_test_bgm_enabled:
+                self.sound.play_bgm(self.sound_test_bgms[self.selected_bgm_index])
+        elif pyxel.btnp(pyxel.KEY_RIGHT):
+            self.selected_bgm_index = (self.selected_bgm_index + 1) % len(self.sound_test_bgms)
+            if self.sound_test_bgm_enabled:
+                self.sound.play_bgm(self.sound_test_bgms[self.selected_bgm_index])
+
+        if pyxel.btnp(pyxel.KEY_RETURN) or pyxel.btnp(pyxel.KEY_SPACE):
+            self.sound.request_effect(self.sound_test_effects[self.selected_effect_index])
+
+        if pyxel.btnp(pyxel.KEY_B):
+            self.sound_test_bgm_enabled = not self.sound_test_bgm_enabled
+            if self.sound_test_bgm_enabled:
+                self.sound.play_bgm(self.sound_test_bgms[self.selected_bgm_index])
+            else:
+                self.sound.stop_bgm()
 
     def _update_game(self) -> None:
         if pyxel.btnp(pyxel.KEY_Q):

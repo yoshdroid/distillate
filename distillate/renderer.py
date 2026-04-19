@@ -62,6 +62,7 @@ class Renderer:
         current_bgm: str | None,
     ) -> None:
         pyxel.cls(C_BLACK)
+        self._draw_grid()
         pyxel.text(82, 14, "SOUND TEST", C_WHITE)
         pyxel.text(18, 34, "UP/DOWN: SELECT EFFECT", C_YELLOW)
         pyxel.text(18, 44, "ENTER/SPACE: PLAY EFFECT", C_YELLOW)
@@ -98,6 +99,12 @@ class Renderer:
             elif tile == Tile.GOAL_DRAIN:
                 pyxel.tri(dx + 1, dy + 2, dx + SIZE_UNIT - 1, dy + 2, dx + SIZE_UNIT // 2, dy + SIZE_UNIT - 2, C_BLUE)
 
+        for x in range(GRID_WIDTH + 1):
+            pyxel.line(x * SIZE_UNIT, 0, x * SIZE_UNIT, GRID_HEIGHT * SIZE_UNIT, C_GREEN)
+        for y in range(GRID_HEIGHT + 1):
+            pyxel.line(0, y * SIZE_UNIT, GRID_WIDTH * SIZE_UNIT, y * SIZE_UNIT, C_GREEN)
+
+    def _draw_grid(self) -> None:
         for x in range(GRID_WIDTH + 1):
             pyxel.line(x * SIZE_UNIT, 0, x * SIZE_UNIT, GRID_HEIGHT * SIZE_UNIT, C_GREEN)
         for y in range(GRID_HEIGHT + 1):

@@ -40,10 +40,14 @@ class TempBlock:
         return self.x, self.y
 
     def tick(self) -> bool:
+        if self.life < 0:
+            return True
         self.life -= 1
         return self.life > 0
 
     def animation_phase(self) -> int:
+        if self.max_life < 0:
+            return 0
         if self.life < self.max_life // 8:
             return 2
         if self.life < (self.max_life // 8) * 3:

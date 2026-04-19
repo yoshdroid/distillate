@@ -127,7 +127,9 @@ def _parse_stage_parameter(line: str) -> tuple[str, int | float] | None:
         key, value = line.split(separator, 1)
         key = key.strip().upper()
         value = value.strip()
-        if key in {"MAX_WATER", "MAX_STRESS", "BLOCK_LIFE"} and value.isdecimal():
+        if key in {"MAX_WATER", "MAX_STRESS"} and value.isdecimal():
+            return key, int(value)
+        if key == "BLOCK_LIFE" and _is_int_literal(value):
             return key, int(value)
         if key == "STAGE_GOAL" and value.isdecimal():
             return key, int(value)
@@ -137,3 +139,9 @@ def _parse_stage_parameter(line: str) -> tuple[str, int | float] | None:
             except ValueError:
                 continue
     return None
+
+
+def _is_int_literal(value: str) -> bool:
+    if value.startswith("-"):
+        return value[1:].isdecimal()
+    return value.isdecimal()

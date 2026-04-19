@@ -297,3 +297,18 @@
   - 直前に交換してきた位置への即時再交換を防止
 - `water_behavior_experiment_v0_6.md`
   - v0.64 の不具合内容と対処方針を追記
+## ver0.7-1
+
+青水から赤水への変化タイミングが揃いすぎないよう、生成時点のばらつきを追加した。
+
+### 主な変更点
+
+- `config.py`
+  - 初期赤化率 `INITIAL_RED_CHANCE` を追加
+- `stage.py`
+  - `INITIAL_RED_CHANCE` をステージファイルから上書きできるよう更新
+- `app.py`
+  - ステージ個別の `INITIAL_RED_CHANCE` を `SimulationConfig` へ渡すよう更新
+- `simulation.py`
+  - 水生成時に一定確率で赤水を生成
+  - 青水だけ `MAX_STRESS * 0.1` 以内のランダムな初期 `stress` を持つよう更新

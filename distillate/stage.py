@@ -128,7 +128,7 @@ def _parse_stage_parameter(line: str) -> tuple[str, int | float] | None:
             return key, int(value)
         if key == "STAGE_GOAL" and value.isdecimal():
             return key, int(value)
-        if key == "CLEAR_RATE":
+        if key in {"CLEAR_RATE", "INITIAL_RED_CHANCE"}:
             try:
                 return key, float(value)
             except ValueError:

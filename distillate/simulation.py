@@ -16,6 +16,7 @@ class SimulationConfig:
     lateral_flow_search_depth: int
     enable_diagonal_fall: bool
     upward_splash_chance: float
+    initial_red_chance: float
     reset_cooldown_frames: int
     random_seed: int = 0
     stage_goal: int = 0
@@ -118,7 +119,15 @@ class SimulationState:
             coord = (source_x, source_y)
             if coord in self.waters:
                 continue
-            self.waters[coord] = WaterParticle(x=source_x, y=source_y)
+            self.waters[coord] = self._create_spawned_water(source_x, source_y)
+
+    def _create_spawned_water(self, x: int, y: int) -> WaterParticle:
+        is_red = self.randomizer.random() < self.config.initial_red_chance
+        initial_stress = 0
+        if not is_red:
+            initial_stress_limit = max(0, int(self.config.max_stress * 0.1))
+            initial_stress = self.randomizer.randint(0, initial_stress_limit) if initial_stress_limit > 0 else 0
+        return WaterParticle(x=x, y=y, stress=initial_stress, is_red=is_red)
 
     def _move_water(self) -> None:
         remaining = dict(sorted(self.waters.items(), key=lambda item: (item[0][1], item[0][0])))

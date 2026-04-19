@@ -30,6 +30,7 @@ from distillate.config import (
 from distillate.input import bresenham_line
 from distillate.renderer import Renderer
 from distillate.simulation import SimulationConfig, SimulationState
+from distillate.sound import EffectName, SoundManager
 from distillate.stage import find_stage_files, load_stage_data
 
 
@@ -66,19 +67,30 @@ class DistillateApp:
         self.scene = Scene.TITLE
         self.state: SimulationState | None = None
         self.renderer = Renderer(debug_mode=DEBUG_MODE)
+        self.sound = SoundManager()
         self.dragging = False
         self.previous_cell = (0, 0)
+        self.quit_delay_frames = 0
 
     def run(self) -> None:
         pyxel.init(WINDOW_WIDTH, WINDOW_HEIGHT, title="Distillate")
         pyxel.mouse(True)
+        self.sound.setup()
         pyxel.run(self.update, self.draw)
 
     def update(self) -> None:
+        if self.quit_delay_frames > 0:
+            self.quit_delay_frames -= 1
+            if self.quit_delay_frames == 0:
+                pyxel.quit()
+            self.sound.flush_effects()
+            return
+
         if self.scene == Scene.TITLE:
             self._update_title()
         else:
             self._update_game()
+        self.sound.flush_effects()
 
     def draw(self) -> None:
         if self.scene == Scene.TITLE:
@@ -90,7 +102,8 @@ class DistillateApp:
 
     def _update_title(self) -> None:
         if pyxel.btnp(pyxel.KEY_Q):
-            pyxel.quit()
+            self.sound.request_effect(EffectName.SYSTEM)
+            self.quit_delay_frames = 2
 
         if pyxel.btnp(pyxel.KEY_LEFT):
             self._select_adjacent_stage(-1)
@@ -102,12 +115,15 @@ class DistillateApp:
 
     def _update_game(self) -> None:
         if pyxel.btnp(pyxel.KEY_Q):
+            self.sound.request_effect(EffectName.SYSTEM)
+            self.sound.stop_bgm()
             self.scene = Scene.TITLE
             self.dragging = False
             return
 
         if self.state is not None and self.state.cleared:
             if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+                self.sound.stop_bgm()
                 self.scene = Scene.TITLE
                 self.dragging = False
             return
@@ -120,7 +136,13 @@ class DistillateApp:
 
         if self.state is not None:
             reset_water = pyxel.btnp(pyxel.KEY_W)
+            if reset_water:
+                self.sound.request_effect(EffectName.SYSTEM)
             self.state.tick(reset_water=reset_water)
+            for event_name in self.state.consume_sound_events():
+                self.sound.request_effect(event_name)
+            if self.state.cleared and self.sound.current_bgm != "clear":
+                self.sound.play_bgm("clear")
 
         if current_cell is not None:
             self.previous_cell = current_cell
@@ -145,6 +167,7 @@ class DistillateApp:
         self.state = SimulationState(stage=stage_data.stage, config=stage_config)
         self.current_stage_number = stage_number
         self.scene = Scene.GAME
+        self.sound.play_bgm("stage")
         self.dragging = False
         self.previous_cell = (0, 0)
 
@@ -158,10 +181,14 @@ class DistillateApp:
             self.dragging = False
 
         if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
-            self.state.place_blocks([current_cell])
+            placed = self.state.place_blocks([current_cell])
+            if placed > 0:
+                self.sound.request_effect(EffectName.BLOCK_PLACE)
             self.dragging = True
         elif self.dragging and pyxel.btn(pyxel.MOUSE_BUTTON_LEFT):
-            self.state.place_blocks(bresenham_line(self.previous_cell, current_cell))
+            placed = self.state.place_blocks(bresenham_line(self.previous_cell, current_cell))
+            if placed > 0:
+                self.sound.request_effect(EffectName.BLOCK_PLACE)
         elif not pyxel.btn(pyxel.MOUSE_BUTTON_LEFT):
             self.dragging = False
 

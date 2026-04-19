@@ -34,6 +34,7 @@ class SimulationState:
     goal_removed_blue: int = 0
     goal_removed_red: int = 0
     cleared: bool = False
+    sound_events: list[str] = field(default_factory=list)
     randomizer: random.Random = field(init=False)
 
     def __post_init__(self) -> None:
@@ -48,10 +49,12 @@ class SimulationState:
         self.blocks[coord] = TempBlock(x=x, y=y, life=self.config.block_life, max_life=self.config.block_life)
         return True
 
-    def place_blocks(self, coords: list[tuple[int, int]]) -> None:
+    def place_blocks(self, coords: list[tuple[int, int]]) -> int:
+        placed = 0
         for x, y in coords:
             if self.stage.is_inside(x, y):
-                self.place_block(x, y)
+                placed += int(self.place_block(x, y))
+        return placed
 
     def clear_waters(self) -> None:
         self.waters.clear()
@@ -61,6 +64,7 @@ class SimulationState:
         self.cooldown_frames = self.config.reset_cooldown_frames
 
     def tick(self, reset_water: bool = False) -> None:
+        self.sound_events.clear()
         if self.cleared:
             return
 
@@ -89,6 +93,9 @@ class SimulationState:
 
     def _remove_drained_water(self) -> None:
         drained: dict[tuple[int, int], bool] = {}
+        normal_drain_happened = False
+        goal_blue_happened = False
+        goal_red_happened = False
         for drain_x, drain_y in self.stage.drain_positions():
             for x, y in _neighbors4(drain_x, drain_y):
                 if (x, y) in self.waters:
@@ -105,12 +112,28 @@ class SimulationState:
             if counted_for_goal:
                 if water.is_red:
                     self.goal_removed_red += 1
+                    goal_red_happened = True
                 else:
                     self.goal_removed_blue += 1
+                    goal_blue_happened = True
+            else:
+                normal_drain_happened = True
             del self.waters[coord]
+
+        if goal_red_happened:
+            self.sound_events.append("goal_red_drain")
+        if goal_blue_happened:
+            self.sound_events.append("goal_blue_drain")
+        if normal_drain_happened:
+            self.sound_events.append("normal_drain")
 
         if self.config.stage_goal > 0 and self.goal_removed_total >= self.config.stage_goal:
             self.cleared = True
+
+    def consume_sound_events(self) -> list[str]:
+        events = list(self.sound_events)
+        self.sound_events.clear()
+        return events
 
     def _spawn_water(self) -> None:
         for source_x, source_y in self.stage.source_positions():

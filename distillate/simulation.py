@@ -4,7 +4,7 @@ import random
 from dataclasses import dataclass, field
 
 from distillate.models import TempBlock, WaterParticle
-from distillate.stage import Stage
+from distillate.stage import Stage, Tile as StageTile
 
 
 @dataclass
@@ -29,6 +29,7 @@ class SimulationState:
     config: SimulationConfig
     blocks: dict[tuple[int, int], TempBlock] = field(default_factory=dict)
     waters: dict[tuple[int, int], WaterParticle] = field(default_factory=dict)
+    destroyed_walls: set[tuple[int, int]] = field(default_factory=set)
     frame_count: int = 0
     cooldown_frames: int = 0
     goal_removed_blue: int = 0
@@ -41,7 +42,8 @@ class SimulationState:
         self.randomizer = random.Random(self.config.random_seed)
 
     def place_block(self, x: int, y: int) -> bool:
-        if not self.stage.is_passable(x, y):
+        x, y = self.normalize_coord((x, y))
+        if not self.is_passable_cell((x, y)):
             return False
         coord = (x, y)
         if coord in self.blocks or coord in self.waters:
@@ -56,11 +58,23 @@ class SimulationState:
                 placed += int(self.place_block(x, y))
         return placed
 
+    def break_wall_at(self, x: int, y: int) -> bool:
+        coord = self.normalize_coord((x, y))
+        if coord in self.blocks:
+            del self.blocks[coord]
+            return True
+        if self.has_static_wall(coord):
+            self.destroyed_walls.add(coord)
+            return True
+        return False
+
     def clear_waters(self) -> None:
         self.waters.clear()
 
     def trigger_water_reset(self) -> None:
         self.clear_waters()
+        self.blocks.clear()
+        self.destroyed_walls.clear()
         self.cooldown_frames = self.config.reset_cooldown_frames
 
     def tick(self, reset_water: bool = False) -> None:
@@ -97,11 +111,11 @@ class SimulationState:
         goal_blue_happened = False
         goal_red_happened = False
         for drain_x, drain_y in self.stage.drain_positions():
-            for x, y in _neighbors4(drain_x, drain_y):
+            for x, y in self.neighbors4((drain_x, drain_y)):
                 if (x, y) in self.waters:
                     drained[(x, y)] = False
         for drain_x, drain_y in self.stage.goal_drain_positions():
-            for x, y in _neighbors4(drain_x, drain_y):
+            for x, y in self.neighbors4((drain_x, drain_y)):
                 if (x, y) in self.waters:
                     drained[(x, y)] = True
 
@@ -139,7 +153,7 @@ class SimulationState:
         for source_x, source_y in self.stage.source_positions():
             if len(self.waters) >= self.config.max_water:
                 return
-            coord = (source_x, source_y)
+            coord = self.normalize_coord((source_x, source_y))
             if coord in self.waters:
                 continue
             self.waters[coord] = self._create_spawned_water(source_x, source_y)
@@ -180,7 +194,7 @@ class SimulationState:
             if swapped is not None:
                 return swapped
 
-        down = (x, y + 1)
+        down = self.normalize_coord((x, y + 1))
         if self._is_open_for_water(down, remaining, next_waters):
             particle.reset_stress()
             return down
@@ -191,8 +205,8 @@ class SimulationState:
         sideways = self._prioritize_sideways_targets(
             particle,
             [
-                (x + particle.horizontal_preference, y),
-                (x - particle.horizontal_preference, y),
+                self.normalize_coord((x + particle.horizontal_preference, y)),
+                self.normalize_coord((x - particle.horizontal_preference, y)),
             ],
         )
 
@@ -200,19 +214,19 @@ class SimulationState:
             diagonal_target = self._find_diagonal_fall_target(x, y, remaining, next_waters, sideways)
             if diagonal_target is not None:
                 particle.reset_stress()
-                particle.horizontal_preference = diagonal_target[0] - x
+                particle.horizontal_preference = self.horizontal_step(x, diagonal_target[0])
                 return diagonal_target
 
         guided_target = self._find_guided_sideways_target(particle, remaining, next_waters, sideways)
         if guided_target is not None:
             particle.reset_stress()
-            particle.horizontal_preference = guided_target[0] - x
+            particle.horizontal_preference = self.horizontal_step(x, guided_target[0])
             return guided_target
 
         splash_target = self._find_upward_splash_target(x, y, remaining, next_waters, sideways)
         if splash_target is not None:
             particle.reset_stress()
-            particle.horizontal_preference = splash_target[0] - x
+            particle.horizontal_preference = self.horizontal_step(x, splash_target[0])
             return splash_target
 
         for target in sideways:
@@ -246,7 +260,7 @@ class SimulationState:
         sideways: list[tuple[int, int]],
     ) -> tuple[int, int] | None:
         for side_x, side_y in sideways:
-            diagonal = (side_x, side_y + 1)
+            diagonal = self.normalize_coord((side_x, side_y + 1))
             if self._is_open_for_water((side_x, side_y), remaining, next_waters) and self._is_open_for_water(
                 diagonal,
                 remaining,
@@ -267,7 +281,7 @@ class SimulationState:
             return None
 
         for side_x, side_y in sideways:
-            upward = (side_x, side_y - 1)
+            upward = self.normalize_coord((side_x, side_y - 1))
             if not self._is_open_for_water((side_x, side_y), remaining, next_waters):
                 continue
             if not self._is_open_for_water(upward, remaining, next_waters):
@@ -285,7 +299,7 @@ class SimulationState:
     ) -> tuple[int, int] | None:
         x, y = particle.pos
         for target_x, target_y in sideways:
-            direction = target_x - x
+            direction = self.horizontal_step(x, target_x)
             if direction == 0:
                 continue
             if self._find_drop_distance(x, y, direction, remaining, next_waters) is not None and self._is_open_for_water(
@@ -305,8 +319,8 @@ class SimulationState:
         next_waters: dict[tuple[int, int], WaterParticle],
     ) -> int | None:
         for distance in range(1, self.config.lateral_flow_search_depth + 1):
-            cell = (x + direction * distance, y)
-            below = (cell[0], y + 1)
+            cell = self.normalize_coord((x + direction * distance, y))
+            below = self.normalize_coord((cell[0], y + 1))
             if not self._is_open_for_water(cell, remaining, next_waters):
                 return None
             if self._is_open_for_water(below, remaining, next_waters):
@@ -320,15 +334,15 @@ class SimulationState:
         next_waters: dict[tuple[int, int], WaterParticle],
     ) -> tuple[int, int] | None:
         x, y = particle.pos
-        above = (x, y - 1)
+        above = self.normalize_coord((x, y - 1))
         if self._swap_with_blue_water(above, (x, y), remaining, next_waters):
             return above
 
         lateral_targets = self._prioritize_sideways_targets(
             particle,
             [
-                (x + particle.horizontal_preference, y),
-                (x - particle.horizontal_preference, y),
+                self.normalize_coord((x + particle.horizontal_preference, y)),
+                self.normalize_coord((x - particle.horizontal_preference, y)),
             ],
         )
         if particle.previous_pos is not None:
@@ -345,7 +359,10 @@ class SimulationState:
         if blocking_above is None or not blocking_above.is_red:
             return None
 
-        diagonal_targets = [(x - 1, y - 1), (x + 1, y - 1)]
+        diagonal_targets = [
+            self.normalize_coord((x - 1, y - 1)),
+            self.normalize_coord((x + 1, y - 1)),
+        ]
         for target in diagonal_targets:
             if self._swap_with_blue_water(target, (x, y), remaining, next_waters):
                 return target
@@ -359,6 +376,8 @@ class SimulationState:
         remaining: dict[tuple[int, int], WaterParticle],
         next_waters: dict[tuple[int, int], WaterParticle],
     ) -> bool:
+        source = self.normalize_coord(source)
+        destination = self.normalize_coord(destination)
         candidate = self._get_water_at(source, remaining, next_waters)
         if candidate is None or candidate.is_red:
             return False
@@ -377,6 +396,7 @@ class SimulationState:
         remaining: dict[tuple[int, int], WaterParticle],
         next_waters: dict[tuple[int, int], WaterParticle],
     ) -> WaterParticle | None:
+        coord = self.normalize_coord(coord)
         if coord in next_waters:
             return next_waters[coord]
         return remaining.get(coord)
@@ -387,8 +407,8 @@ class SimulationState:
         remaining: dict[tuple[int, int], WaterParticle],
         next_waters: dict[tuple[int, int], WaterParticle],
     ) -> bool:
-        x, y = coord
-        if not self.stage.is_passable(x, y):
+        coord = self.normalize_coord(coord)
+        if not self.is_passable_cell(coord):
             return False
         if coord in self.blocks:
             return False
@@ -397,6 +417,38 @@ class SimulationState:
         if coord in next_waters:
             return False
         return True
+
+    def normalize_coord(self, coord: tuple[int, int]) -> tuple[int, int]:
+        return self.stage.normalize_coord(*coord)
+
+    def neighbors4(self, coord: tuple[int, int]) -> tuple[tuple[int, int], ...]:
+        x, y = coord
+        return (
+            self.normalize_coord((x, y - 1)),
+            self.normalize_coord((x, y + 1)),
+            self.normalize_coord((x - 1, y)),
+            self.normalize_coord((x + 1, y)),
+        )
+
+    def horizontal_step(self, current_x: int, target_x: int) -> int:
+        if target_x == (current_x + 1) % self.stage.width:
+            return 1
+        if target_x == (current_x - 1) % self.stage.width:
+            return -1
+        if target_x == current_x:
+            return 0
+        return 1 if target_x > current_x else -1
+
+    def has_static_wall(self, coord: tuple[int, int]) -> bool:
+        x, y = self.normalize_coord(coord)
+        return self.stage.tile_at(x, y) == StageTile.WALL and (x, y) not in self.destroyed_walls
+
+    def is_passable_cell(self, coord: tuple[int, int]) -> bool:
+        x, y = self.normalize_coord(coord)
+        tile = self.stage.tile_at(x, y)
+        if tile == StageTile.EMPTY:
+            return True
+        return tile == StageTile.WALL and (x, y) in self.destroyed_walls
 
     @property
     def goal_removed_total(self) -> int:
@@ -417,7 +469,3 @@ class SimulationState:
         if not self.cleared:
             return False
         return self.clear_ratio >= self.config.clear_rate
-
-
-def _neighbors4(x: int, y: int) -> tuple[tuple[int, int], ...]:
-    return ((x, y - 1), (x, y + 1), (x - 1, y), (x + 1, y))

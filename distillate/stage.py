@@ -41,6 +41,9 @@ class Stage:
     def is_inside(self, x: int, y: int) -> bool:
         return 0 <= x < self.width and 0 <= y < self.height
 
+    def normalize_coord(self, x: int, y: int) -> tuple[int, int]:
+        return x % self.width, y % self.height
+
     def tile_at(self, x: int, y: int) -> Tile:
         return self.tiles[y][x]
 

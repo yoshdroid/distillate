@@ -181,10 +181,17 @@ class DistillateApp:
             self.dragging = False
 
         if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+            if self.state.break_wall_at(*current_cell):
+                self.sound.request_effect(EffectName.BLOCK_BREAK)
+                self.dragging = False
+                return
+
             placed = self.state.place_blocks([current_cell])
             if placed > 0:
                 self.sound.request_effect(EffectName.BLOCK_PLACE)
-            self.dragging = True
+                self.dragging = True
+            else:
+                self.dragging = False
         elif self.dragging and pyxel.btn(pyxel.MOUSE_BUTTON_LEFT):
             placed = self.state.place_blocks(bresenham_line(self.previous_cell, current_cell))
             if placed > 0:

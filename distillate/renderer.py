@@ -55,7 +55,7 @@ class Renderer:
         for x, y, tile in state.stage.iter_tiles():
             dx = x * SIZE_UNIT
             dy = y * SIZE_UNIT
-            if tile == Tile.WALL:
+            if tile == Tile.WALL and state.has_static_wall((x, y)):
                 pyxel.rect(dx, dy, SIZE_UNIT, SIZE_UNIT, C_BROWN)
             elif tile == Tile.SOURCE:
                 pyxel.tri(dx + 1, dy + 2, dx + SIZE_UNIT - 1, dy + 2, dx + SIZE_UNIT // 2, dy + SIZE_UNIT - 2, C_YELLOW)

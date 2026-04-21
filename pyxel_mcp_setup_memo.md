@@ -1,23 +1,23 @@
-# pyxel_mcp Setup Memo
+# pyxel_mcp 設定メモ
 
-## Date
+## 日付
 
 - 2026-04-20
 
-## Goal
+## 目的
 
-- Register `pyxel_mcp` as an MCP server so Codex can see it directly.
+- `pyxel_mcp` を MCP サーバとして登録し、Codex から直接見える状態にする。
 
-## What I checked first
+## 最初に確認したこと
 
-- `pyxel-mcp` package was already installed in Python.
-- `pyxel-mcp` command was exposed as a console script.
-- Codex CLI had MCP management commands:
+- Python 環境に `pyxel-mcp` パッケージがすでにインストールされていた。
+- `pyxel-mcp` コマンドがコンソールスクリプトとして公開されていた。
+- Codex CLI に MCP 管理コマンドが用意されていた。
   - `codex mcp list`
   - `codex mcp add`
   - `codex mcp get`
 
-## Commands I ran
+## 実行したコマンド
 
 ```powershell
 codex mcp add pyxel_mcp -- pyxel-mcp
@@ -26,18 +26,18 @@ codex mcp get pyxel_mcp
 Get-Content $HOME\.codex\config.toml
 ```
 
-## Result
+## 結果
 
-- MCP server registration succeeded.
-- `codex mcp list` showed:
+- MCP サーバの登録は成功した。
+- `codex mcp list` では次の内容を確認できた。
   - name: `pyxel_mcp`
   - command: `pyxel-mcp`
   - status: `enabled`
-- `codex mcp get pyxel_mcp` showed:
+- `codex mcp get pyxel_mcp` では次の内容を確認できた。
   - transport: `stdio`
   - command: `pyxel-mcp`
 
-## Config written by Codex CLI
+## Codex CLI により書き込まれた設定
 
 `~/.codex/config.toml`
 
@@ -49,14 +49,14 @@ sandbox = "unelevated"
 command = "pyxel-mcp"
 ```
 
-## Important note
+## 重要なメモ
 
-- Inside the current Codex session, `list_mcp_resources` still returned empty.
-- That means the MCP server was added to Codex configuration successfully, but this running session did not hot-reload the new MCP server.
-- Most likely, a new Codex session or IDE restart is needed before the tool becomes visible to the agent.
+- 現在の Codex セッション内では、`list_mcp_resources` は空のままだった。
+- つまり、Codex の設定ファイルへの追加自体は成功したが、この実行中セッションでは新しい MCP サーバがホットリロードされていない。
+- エージェントから見えるようにするには、Codex セッションの再起動や IDE の再起動が必要である可能性が高い。
 
-## Current conclusion
+## 現時点の結論
 
-- `pyxel_mcp` registration: success
-- Visible to current live session immediately: not yet confirmed
-- Likely next step: restart Codex / reopen the IDE session, then check MCP resources again
+- `pyxel_mcp` の登録: 成功
+- 現在のライブセッションから即時に見えるか: 未確認
+- 次の有力な手順: Codex / IDE を再起動し、その後に MCP リソースが見えるか再確認する

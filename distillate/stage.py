@@ -74,14 +74,18 @@ class Stage:
 
 
 def load_stage_data(path: Path) -> StageData:
-    lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return load_stage_data_from_text(path.read_text(encoding="utf-8"), source_name=str(path))
+
+
+def load_stage_data_from_text(text: str, source_name: str = "<embedded stage>") -> StageData:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
     map_lines = lines[:GRID_HEIGHT]
     if len(map_lines) != GRID_HEIGHT:
-        raise ValueError(f"{path} does not contain {GRID_HEIGHT} stage rows")
+        raise ValueError(f"{source_name} does not contain {GRID_HEIGHT} stage rows")
 
     layout: list[list[int]] = []
     for line in map_lines:
-        layout.append(_parse_stage_row(line, path))
+        layout.append(_parse_stage_row(line, source_name))
 
     overrides: dict[str, int | float] = {}
     for line in lines[GRID_HEIGHT:]:
@@ -107,14 +111,14 @@ def find_stage_files(base_dir: Path, pattern: str) -> dict[int, Path]:
     return stage_files
 
 
-def _parse_stage_row(line: str, path: Path) -> list[int]:
+def _parse_stage_row(line: str, source_name: str) -> list[int]:
     if " " in line:
         values = [int(value) for value in line.split()]
     else:
         values = [int(char) for char in line]
 
     if len(values) != GRID_WIDTH:
-        raise ValueError(f"{path} row has {len(values)} columns, expected {GRID_WIDTH}")
+        raise ValueError(f"{source_name} row has {len(values)} columns, expected {GRID_WIDTH}")
     return values
 
 

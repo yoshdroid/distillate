@@ -56,3 +56,6 @@ Desktop.ini
 
 # Pyxel / runtime artifacts
 *.pyxres
+/distillate.pyxapp
+/distillate.html
+/web/*.pyxapp

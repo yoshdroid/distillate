@@ -27,11 +27,12 @@ from distillate.config import (
     WINDOW_WIDTH,
     BLOCK_LIFE,
 )
+from distillate.embedded_stages import EMBEDDED_STAGE_TEXTS
 from distillate.input import bresenham_line
 from distillate.renderer import Renderer
 from distillate.simulation import SimulationConfig, SimulationState
 from distillate.sound import EffectName, SoundManager
-from distillate.stage import find_stage_files, load_stage_data
+from distillate.stage import find_stage_files, load_stage_data, load_stage_data_from_text
 
 
 class Scene:
@@ -42,11 +43,15 @@ class Scene:
 
 class DistillateApp:
     def __init__(self) -> None:
-        self.base_dir = Path.cwd()
+        self.base_dir = Path(__file__).resolve().parent.parent
         self.stage_dir = self.base_dir / STAGE_DIRECTORY
         self.stage_files = find_stage_files(self.stage_dir, STAGE_FILE_GLOB)
-        if not self.stage_files:
-            raise FileNotFoundError(f"No stage files matched {STAGE_FILE_GLOB!r} in {self.stage_dir}")
+        self.embedded_stage_texts = EMBEDDED_STAGE_TEXTS if not self.stage_files else {}
+        if not self.stage_files and not self.embedded_stage_texts:
+            raise FileNotFoundError(
+                f"No stage files matched {STAGE_FILE_GLOB!r} in {self.stage_dir} "
+                "and no embedded stages are available"
+            )
 
         self.simulation_config = SimulationConfig(
             block_life=BLOCK_LIFE,
@@ -62,7 +67,7 @@ class DistillateApp:
             stage_goal=STAGE_GOAL,
             clear_rate=CLEAR_RATE,
         )
-        self.available_stages = sorted(self.stage_files)
+        self.available_stages = sorted(self.stage_files or self.embedded_stage_texts)
         self.selected_stage = DEFAULT_STAGE_NUMBER if DEFAULT_STAGE_NUMBER in self.stage_files else self.available_stages[0]
         self.current_stage_number = self.selected_stage
         self.scene = Scene.TITLE
@@ -206,8 +211,13 @@ class DistillateApp:
             self.previous_cell = current_cell
 
     def _start_game(self, stage_number: int) -> None:
-        stage_path = self.stage_files[stage_number]
-        stage_data = load_stage_data(stage_path)
+        if stage_number in self.stage_files:
+            stage_data = load_stage_data(self.stage_files[stage_number])
+        else:
+            stage_data = load_stage_data_from_text(
+                self.embedded_stage_texts[stage_number],
+                source_name=f"embedded stage {stage_number}",
+            )
         stage_config = SimulationConfig(
             block_life=stage_data.overrides.get("BLOCK_LIFE", self.simulation_config.block_life),
             water_speed=self.simulation_config.water_speed,
